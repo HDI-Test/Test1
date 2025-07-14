@@ -1,0 +1,52 @@
+name: Deploy Workflow
+
+on: deployment
+
+jobs:
+  deploy-dev:
+    name: Deploy to DEV environment
+    if: ${{ github.event.deployment.environment == 'DEV' }}
+    concurrency: DEV
+    permissions:
+      deployments: write
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/mia-platform/base-pipeline:1
+    env:
+      JENKINS_JOB_TOKEN: ${{ secrets.JENKINS_JOB_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Update deployment status (pending)
+        if: success()
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: '${{ github.token }}'
+          state: 'pending'
+          deployment-id: ${{ github.event.deployment.id }}
+      - name: Deploy my app
+        run: |
+          ENV_DIR="manifests/deploy/environments/${{ github.event.deployment.environment }}"
+          set -a
+          for envfile in "$ENV_DIR"/*.env; do
+            if [ -f "$envfile" ]; then
+              echo "Reading $envfile"
+              echo "current directory is $(pwd)"
+              . "$envfile"
+              bash ./scripts/deploy.sh
+            fi
+          done
+      - name: Update deployment status (success)
+        if: success()
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: '${{ github.token }}'
+          state: 'success'
+          deployment-id: ${{ github.event.deployment.id }}
+      - name: Update deployment status (failure)
+        if: failure()
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: '${{ github.token }}'
+          state: 'failure'
+          deployment-id: ${{ github.event.deployment.id }}

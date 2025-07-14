@@ -1,0 +1,18 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: default-ingress
+  labels:
+    app.kubernetes.io/instance: "ingress-controller"
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`test1.test.mia-platform.eu`)
+      middlewares:
+        - name: "ingress-controller-hsts-headers"
+          namespace: mia-platform
+      kind: Rule
+      services:
+        - name: api-gateway
+          port: 8080
